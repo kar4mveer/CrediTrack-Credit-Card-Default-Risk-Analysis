@@ -1,0 +1,99 @@
+-- BUSINESS PROBLEM: ARE LATE PAYMENTS ASSOCIATED WITH DEFAULTS?
+
+
+-- COMPARE DEFAULT RATES FOR EACH RECORDED REPAYMENT STATUS
+SELECT
+    PAY_0 AS REPAYMENT_STATUS,
+    COUNT(*) AS TOTAL_CUSTOMERS,
+
+    SUM(CASE
+        WHEN default_payment_next_month = 1 THEN 1
+        ELSE 0
+    END) AS DEFAULTED_CUSTOMERS,
+
+    CAST(
+        100.0 * SUM(CASE
+            WHEN default_payment_next_month = 1 THEN 1
+            ELSE 0
+        END) / COUNT(*) AS DECIMAL(5,2)
+    ) AS DEFAULT_RATE_PERCENTAGE
+
+FROM dbo.CreditCardData
+GROUP BY PAY_0
+ORDER BY PAY_0;
+
+
+-- COMBINE THE SIX REPAYMENT-STATUS COLUMNS TO COMPARE DEFAULT RATES
+SELECT
+    R.REPAYMENT_MONTH,
+    R.REPAYMENT_STATUS,
+    COUNT(*) AS TOTAL_CUSTOMERS,
+
+    SUM(CASE
+        WHEN D.default_payment_next_month = 1 THEN 1
+        ELSE 0
+    END) AS DEFAULTED_CUSTOMERS,
+
+    CAST(
+        100.0 * SUM(CASE
+            WHEN D.default_payment_next_month = 1 THEN 1
+            ELSE 0
+        END) / COUNT(*) AS DECIMAL(5,2)
+    ) AS DEFAULT_RATE_PERCENTAGE
+
+FROM dbo.CreditCardData AS D
+
+CROSS APPLY (
+    VALUES
+        ('PAY_0', D.PAY_0),
+        ('PAY_2', D.PAY_2),
+        ('PAY_3', D.PAY_3),
+        ('PAY_4', D.PAY_4),
+        ('PAY_5', D.PAY_5),
+        ('PAY_6', D.PAY_6)
+) AS R(REPAYMENT_MONTH, REPAYMENT_STATUS)
+
+GROUP BY
+    R.REPAYMENT_MONTH,
+    R.REPAYMENT_STATUS
+
+ORDER BY
+    CASE R.REPAYMENT_MONTH
+        WHEN 'PAY_0' THEN 0
+        WHEN 'PAY_2' THEN 2
+        WHEN 'PAY_3' THEN 3
+        WHEN 'PAY_4' THEN 4
+        WHEN 'PAY_5' THEN 5
+        WHEN 'PAY_6' THEN 6
+    END,
+    R.REPAYMENT_STATUS;
+
+
+    -- COMPARE DEFAULT RATES FOR POSITIVE PAY_0 CODES
+-- VERSUS ZERO OR NEGATIVE PAY_0 CODES
+SELECT
+    CASE
+        WHEN PAY_0 > 0 THEN 'POSITIVE DELAY CODE'
+        ELSE 'ZERO OR NEGATIVE CODE'
+    END AS REPAYMENT_GROUP,
+
+    COUNT(*) AS TOTAL_CUSTOMERS,
+
+    SUM(CASE
+        WHEN default_payment_next_month = 1 THEN 1
+        ELSE 0
+    END) AS DEFAULTED_CUSTOMERS,
+
+    CAST(
+        100.0 * SUM(CASE
+            WHEN default_payment_next_month = 1 THEN 1
+            ELSE 0
+        END) / COUNT(*) AS DECIMAL(5,2)
+    ) AS DEFAULT_RATE_PERCENTAGE
+
+FROM dbo.CreditCardData
+GROUP BY
+    CASE
+        WHEN PAY_0 > 0 THEN 'POSITIVE DELAY CODE'
+        ELSE 'ZERO OR NEGATIVE CODE'
+    END;
